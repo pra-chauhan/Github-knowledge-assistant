@@ -1,6 +1,6 @@
 generator client {
- provider = "prisma-client"
- output   = "../src/generated/prisma"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -8,17 +8,36 @@ datasource db {
 }
 
 model Repository {
-  id            String   @id @default(uuid())
+  id            String           @id @default(uuid())
   owner         String
   name          String
-  fullName      String   @unique
-  githubUrl     String   @unique
+  fullName      String           @unique
+  githubUrl     String           @unique
   defaultBranch String?
   description   String?
   language      String?
-  stars         Int      @default(0)
-  status        String   @default("PENDING")
+  stars         Int              @default(0)
+  status        String           @default("PENDING")
   lastIndexedAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  files         RepositoryFile[]
+}
+
+model RepositoryFile {
+  id           String     @id @default(uuid())
+  repositoryId String
+  path         String
+  sha          String
+  size         Int
+  language     String?
+  content      String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, path])
+  @@index([repositoryId])
 }

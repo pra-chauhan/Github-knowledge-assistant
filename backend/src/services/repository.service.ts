@@ -5,14 +5,24 @@ export interface CreateRepositoryInput {
   name: string;
   fullName: string;
   githubUrl: string;
-  defaultBranch?: string;
-  description?: string;
-  language?: string;
+  defaultBranch?: string | null;
+  description?: string | null;
+  language?: string | null;
   stars?: number;
 }
 
 export const repositoryService = {
   async create(data: CreateRepositoryInput) {
+    const existingRepository = await prisma.repository.findUnique({
+      where: {
+        fullName: data.fullName,
+      },
+    });
+
+    if (existingRepository) {
+      return existingRepository;
+    }
+
     return prisma.repository.create({
       data: {
         owner: data.owner,
@@ -42,6 +52,21 @@ export const repositoryService = {
       },
     });
   },
+
+  async update(
+  id: string,
+  data: {
+    status?: string;
+    lastIndexedAt?: Date | null;
+  }
+) {
+  return prisma.repository.update({
+    where: {
+      id,
+    },
+    data,
+  });
+},
 
   async delete(id: string) {
     return prisma.repository.delete({
