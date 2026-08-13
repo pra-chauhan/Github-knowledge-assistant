@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { prisma } from "./lib/prisma";
+import repositoryRoutes from "./routes/repository.routes";
 
 dotenv.config();
 
@@ -10,7 +11,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
-
+app.use("/api/repositories", repositoryRoutes);
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
