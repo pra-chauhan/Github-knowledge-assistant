@@ -3,7 +3,7 @@ import { shouldIndexFile } from "./repository-file-filter";
 import { repositoryFileService } from "./repository-file.service";
 import { repositoryService } from "./repository.service";
 
-const MAX_FILES_PER_RUN = 100;
+const MAX_FILES_PER_RUN = 25;
 
 export interface IngestionResult {
   repositoryId: string;
@@ -49,9 +49,9 @@ export const repositoryIngestionService = {
     );
 
     const filesToProcess = eligibleFiles.slice(
-      0,
-      MAX_FILES_PER_RUN
-    );
+  0,
+  MAX_FILES_PER_RUN
+);
 
     if (eligibleFiles.length > MAX_FILES_PER_RUN) {
       console.log(
