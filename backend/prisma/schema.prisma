@@ -23,6 +23,7 @@ model Repository {
   updatedAt     DateTime         @updatedAt
 
   files         RepositoryFile[]
+  chunks RepositoryFileChunk[]
 }
 
 model RepositoryFile {
@@ -37,7 +38,27 @@ model RepositoryFile {
   updatedAt    DateTime   @updatedAt
 
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
+  chunks RepositoryFileChunk[]
   @@unique([repositoryId, path])
   @@index([repositoryId])
+}
+
+model RepositoryFileChunk {
+  id           String         @id @default(uuid())
+  repositoryId String
+  fileId       String
+  chunkIndex   Int
+  content      String
+  startLine    Int?
+  endLine      Int?
+  tokenCount   Int?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  file       RepositoryFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, chunkIndex])
+  @@index([repositoryId])
+  @@index([fileId])
 }

@@ -2,6 +2,9 @@ import { githubService } from "./github.service";
 import { shouldIndexFile } from "./repository-file-filter";
 import { repositoryFileService } from "./repository-file.service";
 import { repositoryService } from "./repository.service";
+import { detectLanguage } from "../utils/file-language";
+import { repositoryChunkService } from "./repository-chunk.service";
+
 
 const MAX_FILES_PER_RUN = 25;
 
@@ -49,8 +52,8 @@ export const repositoryIngestionService = {
     );
 
     const filesToProcess = eligibleFiles.slice(
-  0,
-  MAX_FILES_PER_RUN
+  100,
+  100 + MAX_FILES_PER_RUN
 );
 
     if (eligibleFiles.length > MAX_FILES_PER_RUN) {
@@ -64,7 +67,17 @@ export const repositoryIngestionService = {
     let filesSkipped = 0;
     let filesFailed = 0;
 
-    for (const file of filesToProcess) {
+    const CONCURRENCY = 5;
+
+for (let i = 0; i < filesToProcess.length; i += CONCURRENCY) {
+  const batch = filesToProcess.slice(i, i + CONCURRENCY);
+
+  console.log(
+    `Processing batch ${Math.floor(i / CONCURRENCY) + 1}...`
+  );
+
+  const results = await Promise.all(
+    batch.map(async (file) => {
       try {
         console.log(`Processing: ${file.path}`);
 
@@ -82,53 +95,149 @@ export const repositoryIngestionService = {
             `Skipping unchanged file: ${file.path}`
           );
 
-          filesSkipped++;
-          continue;
+          return {
+            downloaded: 0,
+            saved: 0,
+            skipped: 1,
+            failed: 0,
+          };
         }
 
         const githubFile =
-            await githubService.getBlobContent(
-                repository.owner,
-                repository.name,
-                file.sha
-            );
+          await githubService.getBlobContent(
+            repository.owner,
+            repository.name,
+            file.sha
+          );
 
         if (!githubFile) {
           console.log(
             `Skipped file: ${file.path}`
           );
 
-          filesSkipped++;
-          continue;
+          return {
+            downloaded: 0,
+            saved: 0,
+            skipped: 1,
+            failed: 0,
+          };
         }
 
-        filesDownloaded++;
-
-        await repositoryFileService.upsert({
+        const savedFile = await repositoryFileService.upsert({
   repositoryId,
   path: file.path,
   sha: githubFile.sha,
   size: githubFile.size,
-  language: null,
+  language: detectLanguage(file.path),
   content: githubFile.content,
 });
 
-        filesSaved++;
+await repositoryChunkService.createForFile(
+  repositoryId,
+  savedFile.id,
+  githubFile.content
+);
 
-        console.log(
-          `Saved: ${githubFile.path}`
-        );
+console.log(`Saved file and chunks: ${file.path}`);
+
+        return {
+          downloaded: 1,
+          saved: 1,
+          skipped: 0,
+          failed: 0,
+        };
       } catch (error) {
-        filesFailed++;
-
         console.error(
           `Failed to process ${file.path}:`,
           error instanceof Error
             ? error.message
             : error
         );
+
+        return {
+          downloaded: 0,
+          saved: 0,
+          skipped: 0,
+          failed: 1,
+        };
       }
-    }
+    })
+  );
+
+  for (const result of results) {
+    filesDownloaded += result.downloaded;
+    filesSaved += result.saved;
+    filesSkipped += result.skipped;
+    filesFailed += result.failed;
+  }
+}
+
+
+//     for (const file of filesToProcess) {
+//       try {
+//         console.log(`Processing: ${file.path}`);
+
+//         const existingFile =
+//           await repositoryFileService.findByPath(
+//             repositoryId,
+//             file.path
+//           );
+
+//         if (
+//           existingFile &&
+//           existingFile.sha === file.sha
+//         ) {
+//           console.log(
+//             `Skipping unchanged file: ${file.path}`
+//           );
+
+//           filesSkipped++;
+//           continue;
+//         }
+
+//         const githubFile =
+//             await githubService.getBlobContent(
+//                 repository.owner,
+//                 repository.name,
+//                 file.sha
+//             );
+
+//         if (!githubFile) {
+//           console.log(
+//             `Skipped file: ${file.path}`
+//           );
+
+//           filesSkipped++;
+//           continue;
+//         }
+
+//         filesDownloaded++;
+
+//         await repositoryFileService.upsert({
+//   repositoryId,
+//   path: file.path,
+//   sha: githubFile.sha,
+//   size: githubFile.size,
+//   language: null,
+//   content: githubFile.content,
+// });
+
+//         filesSaved++;
+
+//         console.log(
+//           `Saved: ${githubFile.path}`
+//         );
+//       } catch (error) {
+//         filesFailed++;
+
+//         console.error(
+//           `Failed to process ${file.path}:`,
+//           error instanceof Error
+//             ? error.message
+//             : error
+//         );
+//       }
+//     }
 
     await repositoryService.update(repositoryId, {
       status: "INDEXED",
