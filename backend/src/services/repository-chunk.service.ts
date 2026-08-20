@@ -107,4 +107,28 @@ export const repositoryChunkService = {
       },
     });
   },
+  async updateEmbedding(
+  chunkId: string,
+  embedding: number[]
+) {
+  if (embedding.length !== 1536) {
+    throw new Error(
+      `Expected 1536-dimensional embedding, received ${embedding.length}`
+    );
+  }
+
+  const vector = `[${embedding.join(",")}]`;
+
+  await prisma.$executeRaw`
+    UPDATE "RepositoryFileChunk"
+    SET "embedding" = ${vector}::vector
+    WHERE "id" = ${chunkId}
+  `;
+
+  return prisma.repositoryFileChunk.findUnique({
+    where: {
+      id: chunkId,
+    },
+  });
+},
 };

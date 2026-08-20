@@ -4,6 +4,7 @@ import { repositoryFileService } from "./repository-file.service";
 import { repositoryService } from "./repository.service";
 import { detectLanguage } from "../utils/file-language";
 import { repositoryChunkService } from "./repository-chunk.service";
+import { repositoryEmbeddingService } from "./repository-embedding.service";
 
 
 const MAX_FILES_PER_RUN = 25;
@@ -52,8 +53,8 @@ export const repositoryIngestionService = {
     );
 
     const filesToProcess = eligibleFiles.slice(
-  100,
-  100 + MAX_FILES_PER_RUN
+  0,
+  MAX_FILES_PER_RUN
 );
 
     if (eligibleFiles.length > MAX_FILES_PER_RUN) {
@@ -173,71 +174,6 @@ console.log(`Saved file and chunks: ${file.path}`);
 }
 
 
-//     for (const file of filesToProcess) {
-//       try {
-//         console.log(`Processing: ${file.path}`);
-
-//         const existingFile =
-//           await repositoryFileService.findByPath(
-//             repositoryId,
-//             file.path
-//           );
-
-//         if (
-//           existingFile &&
-//           existingFile.sha === file.sha
-//         ) {
-//           console.log(
-//             `Skipping unchanged file: ${file.path}`
-//           );
-
-//           filesSkipped++;
-//           continue;
-//         }
-
-//         const githubFile =
-//             await githubService.getBlobContent(
-//                 repository.owner,
-//                 repository.name,
-//                 file.sha
-//             );
-
-//         if (!githubFile) {
-//           console.log(
-//             `Skipped file: ${file.path}`
-//           );
-
-//           filesSkipped++;
-//           continue;
-//         }
-
-//         filesDownloaded++;
-
-//         await repositoryFileService.upsert({
-//   repositoryId,
-//   path: file.path,
-//   sha: githubFile.sha,
-//   size: githubFile.size,
-//   language: null,
-//   content: githubFile.content,
-// });
-
-//         filesSaved++;
-
-//         console.log(
-//           `Saved: ${githubFile.path}`
-//         );
-//       } catch (error) {
-//         filesFailed++;
-
-//         console.error(
-//           `Failed to process ${file.path}:`,
-//           error instanceof Error
-//             ? error.message
-//             : error
-//         );
-//       }
-//     }
 
     await repositoryService.update(repositoryId, {
       status: "INDEXED",
