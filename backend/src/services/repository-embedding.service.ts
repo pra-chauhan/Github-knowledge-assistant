@@ -2,34 +2,68 @@ import { embeddingService } from "./embedding.service";
 import { repositoryChunkService } from "./repository-chunk.service";
 
 export const repositoryEmbeddingService = {
-  async embedChunk(chunkId: string, content: string) {
+  async generateEmbedding(content: string): Promise<number[]> {
     if (!content.trim()) {
-      throw new Error("Cannot embed empty chunk");
+      throw new Error("Cannot generate embedding for empty content");
     }
 
-    console.log(`Generating embedding for chunk ${chunkId}...`);
+    return embeddingService.generateEmbedding(content);
+  },
 
-    const embedding =
-      await embeddingService.generateEmbedding(content);
-
-    console.log(
-      `Embedding generated: ${embedding.length} dimensions`
+  async saveEmbedding(
+    chunkId: string,
+    embedding: number[]
+  ) {
+    return repositoryChunkService.updateEmbedding(
+      chunkId,
+      embedding
     );
+  },
 
-    const updatedChunk =
-      await repositoryChunkService.updateEmbedding(
-        chunkId,
-        embedding
-      );
+  async embedChunk(
+    chunkId: string,
+    content: string
+  ) {
+    const embedding =
+      await this.generateEmbedding(content);
 
-    if (!updatedChunk) {
-      throw new Error(
-        `Chunk not found after embedding update: ${chunkId}`
-      );
+    return this.saveEmbedding(
+      chunkId,
+      embedding
+    );
+  },
+
+  async embedChunks(
+    chunks: Array<{
+      id: string;
+      content: string;
+    }>
+  ) {
+    const results = [];
+
+    for (const chunk of chunks) {
+      try {
+        console.log(
+          `Embedding chunk ${chunk.id}...`
+        );
+
+        const result =
+          await this.embedChunk(
+            chunk.id,
+            chunk.content
+          );
+
+        results.push(result);
+      } catch (error) {
+        console.error(
+          `Failed to embed chunk ${chunk.id}:`,
+          error instanceof Error
+            ? error.message
+            : error
+        );
+      }
     }
 
-    console.log(`Embedding saved for chunk ${chunkId}`);
-
-    return updatedChunk;
+    return results;
   },
 };

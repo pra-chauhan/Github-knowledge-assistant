@@ -31,29 +31,22 @@ async function test() {
       "react",
       "react",
       readme.sha,
-      
     );
-
     if (!file) {
       console.log("File was skipped.");
       return;
     }
-
     console.log("Blob downloaded successfully:\n");
-
     console.log({
       path: file.path,
       sha: file.sha,
       size: file.size,
       encoding: file.encoding,
     });
-
     console.log("\nFirst 500 characters:\n");
-
     console.log(file.content.slice(0, 500));
   } catch (error) {
     console.error("\nBlob download failed:");
-
     if (error instanceof Error) {
       console.error(error.message);
     } else {
@@ -61,5 +54,4 @@ async function test() {
     }
   }
 }
-
 test();
