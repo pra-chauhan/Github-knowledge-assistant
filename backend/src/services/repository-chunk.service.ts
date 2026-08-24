@@ -27,7 +27,6 @@ export function splitContent(
   }
 
   const chunks: string[] = [];
-
   let start = 0;
 
   while (start < content.length) {
@@ -107,28 +106,37 @@ export const repositoryChunkService = {
       },
     });
   },
+
   async updateEmbedding(
-  chunkId: string,
-  embedding: number[]
-) {
-  if (embedding.length !== 1536) {
-    throw new Error(
-      `Expected 1536-dimensional embedding, received ${embedding.length}`
-    );
-  }
+    chunkId: string,
+    embedding: number[]
+  ) {
+    if (embedding.length !== 1536) {
+      throw new Error(
+        `Expected 1536-dimensional embedding, received ${embedding.length}`
+      );
+    }
 
-  const vector = `[${embedding.join(",")}]`;
+    const vector = `[${embedding.join(",")}]`;
 
-  await prisma.$executeRaw`
-    UPDATE "RepositoryFileChunk"
-    SET "embedding" = ${vector}::vector
-    WHERE "id" = ${chunkId}
-  `;
+    await prisma.$executeRaw`
+      UPDATE "RepositoryFileChunk"
+      SET "embedding" = ${vector}::vector
+      WHERE "id" = ${chunkId}
+    `;
 
-  return prisma.repositoryFileChunk.findUnique({
-    where: {
-      id: chunkId,
-    },
-  });
-},
+    return prisma.repositoryFileChunk.findUnique({
+      where: {
+        id: chunkId,
+      },
+    });
+  },
+
+  async findById(chunkId: string) {
+    return prisma.repositoryFileChunk.findUnique({
+      where: {
+        id: chunkId,
+      },
+    });
+  },
 };

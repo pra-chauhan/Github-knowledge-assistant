@@ -133,17 +133,21 @@ for (let i = 0; i < filesToProcess.length; i += CONCURRENCY) {
   content: githubFile.content,
 });
 
+const chunks = await repositoryChunkService.createForFile(
+  repositoryId,
+  savedFile.id,
+  githubFile.content
+);
 
-
-const chunks =
-  await repositoryChunkService.createForFile(
-    repositoryId,
-    savedFile.id,
-    githubFile.content
-  );
+await repositoryEmbeddingService.embedChunks(
+  chunks.map((chunk) => ({
+    id: chunk.id,
+    content: chunk.content,
+  }))
+);
 
 console.log(
-  `Created ${chunks.length} chunks for ${file.path}`
+  `Saved file, chunks and embeddings: ${file.path}`
 );
 
 await repositoryEmbeddingService.embedChunks(

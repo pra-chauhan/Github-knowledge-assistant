@@ -2,11 +2,9 @@ import { embeddingService } from "./embedding.service";
 import { repositoryChunkService } from "./repository-chunk.service";
 
 export const repositoryEmbeddingService = {
-  async generateEmbedding(content: string): Promise<number[]> {
-    if (!content.trim()) {
-      throw new Error("Cannot generate embedding for empty content");
-    }
-
+  async generateEmbedding(
+    content: string
+  ): Promise<number[]> {
     return embeddingService.generateEmbedding(content);
   },
 
@@ -43,10 +41,6 @@ export const repositoryEmbeddingService = {
 
     for (const chunk of chunks) {
       try {
-        console.log(
-          `Embedding chunk ${chunk.id}...`
-        );
-
         const result =
           await this.embedChunk(
             chunk.id,
