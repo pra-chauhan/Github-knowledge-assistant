@@ -1,4 +1,6 @@
 import { repositorySearchService } from "./repository-search.service";
+import { llmRouter } from "./llm/llm-router.service";
+
 
 export interface AskRepositoryInput {
   repositoryId: string;
@@ -42,10 +44,11 @@ ${result.content}`
       )
       .join("\n\n--------------------\n\n");
 
-    const answer = buildMockAnswer(
-      question,
-      results
-    );
+    const answer =
+      await llmRouter.generateAnswer({
+        question,
+        context
+    });
 
     return {
       answer,
@@ -54,7 +57,7 @@ ${result.content}`
         chunkIndex: result.chunkIndex,
         score: result.score,
       })),
-      context,
+     
     };
   },
 };
