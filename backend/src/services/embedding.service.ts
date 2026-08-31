@@ -1,109 +1,138 @@
-import OpenAI from "openai";
-import crypto from "crypto";
-
+const EMBEDDING_MODEL = "gemini-embedding-001";
 const EMBEDDING_DIMENSIONS = 1536;
 
-const EMBEDDING_PROVIDER =
-  process.env.EMBEDDING_PROVIDER || "local";
+const geminiApiKeys = [
+  process.env.GEMINI_API_KEY_1,
+  process.env.GEMINI_API_KEY_2,
+].filter((key): key is string => Boolean(key));
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
+let currentGeminiKeyIndex = 0;
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-function normalize(vector: number[]): number[] {
-  const magnitude = Math.sqrt(
-    vector.reduce((sum, value) => sum + value * value, 0)
-  );
-
-  if (magnitude === 0) {
-    return vector;
+async function getGeminiClient() {
+  if (geminiApiKeys.length === 0) {
+    throw new Error("No Gemini API key configured.");
   }
 
-  return vector.map((value) => value / magnitude);
-}
+  const { GoogleGenAI } = await import("@google/genai");
 
-/**
- * Deterministic local development embedding.
- *
- * This is NOT a production-quality semantic embedding model.
- * It is used so the complete vector-search pipeline can be
- * developed without requiring paid API credits.
- */
-function generateLocalEmbedding(text: string): number[] {
-  const vector = new Array<number>(
-    EMBEDDING_DIMENSIONS
-  ).fill(0);
-
-  const tokens = text
-    .toLowerCase()
-    .replace(/[^\w\s]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-
-  for (const token of tokens) {
-    const hash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest();
-
-    const index =
-      hash.readUInt32BE(0) % EMBEDDING_DIMENSIONS;
-
-    const sign =
-      hash[4] % 2 === 0 ? 1 : -1;
-
-    vector[index] += sign;
-  }
-
-  return normalize(vector);
-}
-
-async function generateOpenAIEmbedding(
-  text: string
-): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: text,
+  return new GoogleGenAI({
+    apiKey: geminiApiKeys[currentGeminiKeyIndex],
   });
+}
 
-  const embedding = response.data[0]?.embedding;
+function switchGeminiKey(): boolean {
+  if (geminiApiKeys.length <= 1) {
+    return false;
+  }
 
-  if (!embedding) {
+  currentGeminiKeyIndex =
+    (currentGeminiKeyIndex + 1) % geminiApiKeys.length;
+
+  return true;
+}
+
+async function generateGeminiEmbeddings(
+  texts: string[]
+): Promise<number[][]> {
+  if (texts.length === 0) {
+    return [];
+  }
+
+  const cleanedTexts = texts.map((text) => text.trim());
+
+  if (cleanedTexts.some((text) => !text)) {
     throw new Error(
-      "Embedding generation returned no vector"
+      "Cannot generate embeddings for empty text."
     );
   }
 
-  return embedding;
+  let lastError: unknown;
+
+  for (
+    let attempt = 0;
+    attempt < geminiApiKeys.length;
+    attempt++
+  ) {
+    try {
+      const ai = await getGeminiClient();
+
+      const response = await ai.models.embedContent({
+        model: EMBEDDING_MODEL,
+        contents: cleanedTexts,
+        config: {
+          outputDimensionality: EMBEDDING_DIMENSIONS,
+        },
+      });
+
+      const embeddings =
+        response.embeddings?.map(
+          (item) => item.values ?? []
+        ) ?? [];
+
+      if (embeddings.length !== cleanedTexts.length) {
+        throw new Error(
+          `Expected ${cleanedTexts.length} embeddings, received ${embeddings.length}.`
+        );
+      }
+
+      for (const embedding of embeddings) {
+        if (embedding.length !== EMBEDDING_DIMENSIONS) {
+          throw new Error(
+            `Expected ${EMBEDDING_DIMENSIONS}-dimensional embedding, received ${embedding.length}.`
+          );
+        }
+      }
+
+      return embeddings;
+    } catch (error) {
+      lastError = error;
+
+      console.error(
+        `Gemini embedding attempt ${attempt + 1} failed:`,
+        error instanceof Error
+          ? error.message
+          : error
+      );
+
+      if (!switchGeminiKey()) {
+        break;
+      }
+
+      console.log(
+        "Switching to the next Gemini API key..."
+      );
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(
+        "Gemini embedding generation failed."
+      );
 }
 
 export const embeddingService = {
   async generateEmbedding(
     text: string
   ): Promise<number[]> {
-    if (!text.trim()) {
-      throw new Error(
-        "Cannot generate embedding for empty text"
-      );
-    }
+    const results =
+      await this.generateEmbeddings([text]);
 
-    if (
-      EMBEDDING_PROVIDER.toLowerCase() ===
-      "openai"
-    ) {
-      return generateOpenAIEmbedding(text);
-    }
-
-    return generateLocalEmbedding(text);
+    return results[0];
   },
 
-  getProvider() {
-    return EMBEDDING_PROVIDER;
-  },
+  async generateEmbeddings(
+    texts: string[]
+  ): Promise<number[][]> {
+    const provider =
+      process.env.EMBEDDING_PROVIDER || "gemini";
 
-  getDimensions() {
-    return EMBEDDING_DIMENSIONS;
+    if (provider === "gemini") {
+      return generateGeminiEmbeddings(texts);
+    }
+
+    throw new Error(
+      `Unsupported embedding provider: ${provider}`
+    );
   },
 };

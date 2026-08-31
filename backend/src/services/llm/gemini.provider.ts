@@ -21,7 +21,7 @@ export class GeminiProvider implements LlmProvider {
 
     if (this.apiKeys.length === 0) {
       throw new Error(
-        "No Gemini API keys configured"
+        "No Gemini API keys configured."
       );
     }
   }
@@ -43,6 +43,10 @@ export class GeminiProvider implements LlmProvider {
       const apiKey = this.apiKeys[keyIndex];
 
       try {
+        console.log(
+          `Trying Gemini API key ${keyIndex + 1}...`
+        );
+
         const client =
           new GoogleGenerativeAI(apiKey);
 
@@ -83,12 +87,17 @@ Answer:
 
         if (!answer) {
           throw new Error(
-            "Gemini returned an empty response"
+            "Gemini returned an empty response."
           );
         }
 
+        // Move to the next key for future requests.
         this.currentKeyIndex =
           (keyIndex + 1) % this.apiKeys.length;
+
+        console.log(
+          `Gemini key ${keyIndex + 1} succeeded.`
+        );
 
         return answer;
       } catch (error) {
@@ -100,13 +109,22 @@ Answer:
             ? error.message
             : error
         );
+
+        if (
+          attempt <
+          this.apiKeys.length - 1
+        ) {
+          console.log(
+            "Trying the next Gemini API key..."
+          );
+        }
       }
     }
 
     throw lastError instanceof Error
       ? lastError
       : new Error(
-          "All configured Gemini keys failed"
+          "All configured Gemini keys failed."
         );
   }
 }

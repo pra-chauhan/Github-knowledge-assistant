@@ -17,18 +17,17 @@ export const repositorySearchService = {
     limit = 5
   ): Promise<RepositorySearchResult[]> {
     if (!query.trim()) {
-      throw new Error(
-        "Search query cannot be empty"
-      );
+      throw new Error("Search query cannot be empty");
     }
 
     const embedding =
-      await embeddingService.generateEmbedding(
-        query
-      );
+      await embeddingService.generateEmbedding(query);
 
-    const vector =
-      `[${embedding.join(",")}]`;
+    const vector = `[${embedding.join(",")}]`;
+
+    // Retrieve more candidates than we finally return.
+    // This gives us room to remove weak matches.
+    const candidateLimit = Math.max(limit * 2, 10);
 
     const results =
       await prisma.$queryRaw<RepositorySearchResult[]>`
@@ -47,9 +46,14 @@ export const repositorySearchService = {
           AND c."embedding" IS NOT NULL
         ORDER BY
           c."embedding" <=> ${vector}::vector
-        LIMIT ${limit}
+        LIMIT ${candidateLimit}
       `;
 
-    return results;
+    // Ignore extremely weak semantic matches.
+    const relevantResults = results.filter(
+      (result) => result.score >= 0.20
+    );
+
+    return relevantResults.slice(0, limit);
   },
 };

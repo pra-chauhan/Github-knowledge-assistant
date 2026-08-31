@@ -139,4 +139,24 @@ export const repositoryChunkService = {
       },
     });
   },
+
+  async findWithoutEmbeddings(
+  repositoryId: string,
+  limit = 1000
+) {
+  return prisma.repositoryFileChunk.findMany({
+    where: {
+      repositoryId,
+      embedding: null,
+    },
+    select: {
+      id: true,
+      content: true,
+    },
+    take: limit,
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+},
 };

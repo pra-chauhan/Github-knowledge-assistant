@@ -1,11 +1,19 @@
 import { repositorySearchService } from "./repository-search.service";
 import { llmRouter } from "./llm/llm-router.service";
 
-
 export interface AskRepositoryInput {
   repositoryId: string;
   question: string;
   topK?: number;
+}
+
+export interface RepositoryQaResponse {
+  answer: string;
+  sources: {
+    file: string;
+    chunkIndex: number;
+    score: number;
+  }[];
 }
 
 export const repositoryQaService = {
@@ -13,17 +21,30 @@ export const repositoryQaService = {
     repositoryId,
     question,
     topK = 5,
-  }: AskRepositoryInput) {
+  }: AskRepositoryInput): Promise<RepositoryQaResponse> {
     if (!question.trim()) {
       throw new Error("Question cannot be empty");
     }
 
+    console.log(
+      `Searching repository for: "${question}"`
+    );
+
+    /*
+     * 1. Convert the question into an embedding
+     * 2. Search pgvector
+     * 3. Retrieve the most relevant repository chunks
+     */
     const results =
       await repositorySearchService.search(
         repositoryId,
         question,
         topK
       );
+
+    console.log(
+      `Found ${results.length} relevant chunks.`
+    );
 
     if (results.length === 0) {
       return {
@@ -33,22 +54,34 @@ export const repositoryQaService = {
       };
     }
 
+    /*
+     * Build the context that will be provided to the LLM.
+     */
     const context = results
       .map(
         (result, index) =>
           `SOURCE ${index + 1}
 File: ${result.path}
 Chunk: ${result.chunkIndex}
+Similarity Score: ${result.score.toFixed(3)}
 
 ${result.content}`
       )
-      .join("\n\n--------------------\n\n");
+      .join(
+        "\n\n--------------------\n\n"
+      );
 
+    console.log("Generating LLM answer...");
+
+    /*
+     * Generate a grounded answer using the retrieved
+     * repository context.
+     */
     const answer =
       await llmRouter.generateAnswer({
-        question,
-        context
-    });
+        question: question.trim(),
+        context,
+      });
 
     return {
       answer,
@@ -57,28 +90,6 @@ ${result.content}`
         chunkIndex: result.chunkIndex,
         score: result.score,
       })),
-     
     };
   },
 };
-
-function buildMockAnswer(
-  question: string,
-  results: Array<{
-    path: string;
-    chunkIndex: number;
-    score: number;
-  }>
-) {
-  return `Based on the repository, I found ${
-    results.length
-  } relevant source chunks for:
-
-"${question}"
-
-The most relevant source is:
-
-${results[0]?.path ?? "Unknown"}
-
-The retrieved repository context is ready to be passed to an LLM in the next phase.`;
-}

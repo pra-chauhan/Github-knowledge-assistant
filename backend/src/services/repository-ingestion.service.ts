@@ -7,7 +7,7 @@ import { repositoryChunkService } from "./repository-chunk.service";
 import { repositoryEmbeddingService } from "./repository-embedding.service";
 
 
-const MAX_FILES_PER_RUN = 1;
+const MAX_FILES_PER_RUN = 50;
 
 export interface IngestionResult {
   repositoryId: string;

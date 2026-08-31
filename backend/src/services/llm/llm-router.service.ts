@@ -2,6 +2,7 @@ import {
   LlmGenerateInput,
   LlmProvider,
 } from "./llm.types";
+
 import { GeminiProvider } from "./gemini.provider";
 
 export const llmRouter = {
@@ -63,7 +64,7 @@ export const llmRouter = {
     throw lastError instanceof Error
       ? lastError
       : new Error(
-          "All LLM providers failed"
+          "All LLM providers failed."
         );
   },
 };
