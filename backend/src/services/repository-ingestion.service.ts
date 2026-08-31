@@ -147,25 +147,13 @@ await repositoryEmbeddingService.embedChunks(
 );
 
 console.log(
-  `Saved file, chunks and embeddings: ${file.path}`
-);
-
-await repositoryEmbeddingService.embedChunks(
-  chunks.map((chunk) => ({
-    id: chunk.id,
-    content: chunk.content,
-  }))
-);
-
-console.log(
   `Saved file, chunks, and embeddings: ${file.path}`
 );
-
-        return {
-          downloaded: 1,
-          saved: 1,
-          skipped: 0,
-          failed: 0,
+return {
+  downloaded: 1,
+  saved: 1,
+  skipped: 0,
+  failed: 0,
         };
       } catch (error) {
         console.error(
