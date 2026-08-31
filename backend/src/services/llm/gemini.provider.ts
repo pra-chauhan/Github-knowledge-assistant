@@ -79,9 +79,16 @@ ${input.question}
 Answer:
 `;
 
+        const llmStart = Date.now();
+
         const result =
           await model.generateContent(prompt);
 
+        const llmTime = Date.now() - llmStart;
+
+        console.log(
+            `[LLM] Gemini generation: ${llmTime} ms`
+        );
         const answer =
           result.response.text()?.trim();
 

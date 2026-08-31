@@ -20,38 +20,55 @@ export const repositorySearchService = {
       throw new Error("Search query cannot be empty");
     }
 
+    const embeddingStart = Date.now();
+
     const embedding =
       await embeddingService.generateEmbedding(query);
 
+    const embeddingTime = Date.now() - embeddingStart;
+
+    console.log(
+      `[SEARCH] Query embedding: ${embeddingTime} ms`
+    );
+
     const vector = `[${embedding.join(",")}]`;
 
-    // Retrieve more candidates than we finally return.
-    // This gives us room to remove weak matches.
-    const candidateLimit = Math.max(limit * 4, 20);
+    const candidateLimit = Math.max(limit * 2, 10);
 
-const results =
-  await prisma.$queryRaw<RepositorySearchResult[]>`
-    SELECT
-      c."id" AS "chunkId",
-      c."fileId" AS "fileId",
-      f."path" AS "path",
-      c."chunkIndex" AS "chunkIndex",
-      c."content" AS "content",
-      1 - (c."embedding" <=> ${vector}::vector) AS "score"
-    FROM "RepositoryFileChunk" c
-    INNER JOIN "RepositoryFile" f
-      ON f."id" = c."fileId"
-    WHERE
-      c."repositoryId" = ${repositoryId}
-      AND c."embedding" IS NOT NULL
-    ORDER BY
-      c."embedding" <=> ${vector}::vector
-    LIMIT ${candidateLimit}
-  `;
+    const searchStart = Date.now();
 
-    // Ignore extremely weak semantic matches.
+    const results =
+      await prisma.$queryRaw<RepositorySearchResult[]>`
+        SELECT
+          c."id" AS "chunkId",
+          c."fileId" AS "fileId",
+          f."path" AS "path",
+          c."chunkIndex" AS "chunkIndex",
+          c."content" AS "content",
+          1 - (c."embedding" <=> ${vector}::vector) AS "score"
+        FROM "RepositoryFileChunk" c
+        INNER JOIN "RepositoryFile" f
+          ON f."id" = c."fileId"
+        WHERE
+          c."repositoryId" = ${repositoryId}
+          AND c."embedding" IS NOT NULL
+        ORDER BY
+          c."embedding" <=> ${vector}::vector
+        LIMIT ${candidateLimit}
+      `;
+
+    const searchTime = Date.now() - searchStart;
+
+    console.log(
+      `[SEARCH] Vector search: ${searchTime} ms`
+    );
+
     const relevantResults = results.filter(
       (result) => result.score >= 0.20
+    );
+
+    console.log(
+      `[SEARCH] Candidates: ${results.length}, relevant: ${relevantResults.length}`
     );
 
     return relevantResults.slice(0, limit);
